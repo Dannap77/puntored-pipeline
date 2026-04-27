@@ -6,6 +6,10 @@ from pathlib import Path
 
 from config.settings import LOG_FILE, LOG_LEVEL
 
+# Forzar UTF-8 en stdout (Windows usa cp1252 por defecto y rompe con caracteres como →).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
