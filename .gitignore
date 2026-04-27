@@ -17,6 +17,8 @@ data/raw/*.csv
 data/bronze/*.parquet
 data/silver/*.parquet
 data/gold/*.parquet
+data/gold/*.duckdb
+data/gold/*.duckdb.wal
 
 # Mantener las carpetas vacías en git
 !data/raw/.gitkeep
