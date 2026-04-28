@@ -1,9 +1,7 @@
-"""Genera un reporte HTML estatico autocontenido (un solo archivo).
+"""Genera un reporte HTML estático autocontenido en docs/reporte.html.
 
-Util como backup del dashboard Streamlit:
-- No requiere correr ningun servidor
-- Se abre con doble click
-- Se puede compartir como adjunto
+Es el backup del dashboard Streamlit: un solo archivo que se abre
+con doble click, sin necesidad de correr Python.
 
 Ejecutar:
     python dashboard/generate_report.py
@@ -14,7 +12,6 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import plotly.io as pio
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,14 +31,12 @@ by_day = con.execute(
 ).fetchdf()
 con.close()
 
-# Insights dinamicos
 worst = by_mc.sort_values("failure_rate", ascending=False).iloc[0]
 slowest = by_ch.sort_values("avg_processing_time_ms", ascending=False).iloc[0]
 fastest = by_ch.sort_values("avg_processing_time_ms", ascending=True).iloc[0]
 top_method = by_pm.sort_values("total_amount", ascending=False).iloc[0]
 top_method_share = top_method["total_amount"] / by_pm["total_amount"].sum() * 100
 
-# Graficos
 by_day["transaction_date"] = pd.to_datetime(by_day["transaction_date"])
 by_day["mes"] = by_day["transaction_date"].dt.to_period("M").astype(str)
 monthly = by_day.groupby("mes", as_index=False).agg(
@@ -88,7 +83,6 @@ def fig_html(fig, include_js=False):
     )
 
 
-# Tabla simple a HTML
 def df_to_html(df, money_cols=(), pct_cols=(), int_cols=()):
     df = df.copy()
     for c in money_cols:

@@ -15,66 +15,45 @@ ROOT = Path(__file__).resolve().parent.parent
 DUCKDB_PATH = ROOT / "data" / "gold" / "warehouse.duckdb"
 
 
-# ---------- Carga de datos (cacheada) ----------
-
 @st.cache_data
 def load_gold() -> dict[str, pd.DataFrame]:
     if not DUCKDB_PATH.exists():
         st.error(
             f"No se encuentra el warehouse en {DUCKDB_PATH}.\n"
-            "Corre primero: `python main.py`"
+            "Corre primero: `python pipeline.py`"
         )
         st.stop()
 
     con = duckdb.connect(str(DUCKDB_PATH), read_only=True)
     out = {
-        "overall": con.execute("SELECT * FROM gold_kpi_overall").fetchdf(),
-        "by_user": con.execute("SELECT * FROM gold_kpi_by_user").fetchdf(),
-        "by_payment_method": con.execute(
-            "SELECT * FROM gold_kpi_by_payment_method"
-        ).fetchdf(),
-        "by_channel": con.execute("SELECT * FROM gold_kpi_by_channel").fetchdf(),
-        "by_method_channel": con.execute(
-            "SELECT * FROM gold_kpi_by_method_channel"
-        ).fetchdf(),
-        "by_day": con.execute(
-            "SELECT * FROM gold_kpi_by_day ORDER BY transaction_date"
-        ).fetchdf(),
+        "overall":           con.execute("SELECT * FROM gold_kpi_overall").fetchdf(),
+        "by_user":           con.execute("SELECT * FROM gold_kpi_by_user").fetchdf(),
+        "by_payment_method": con.execute("SELECT * FROM gold_kpi_by_payment_method").fetchdf(),
+        "by_channel":        con.execute("SELECT * FROM gold_kpi_by_channel").fetchdf(),
+        "by_method_channel": con.execute("SELECT * FROM gold_kpi_by_method_channel").fetchdf(),
+        "by_day":            con.execute("SELECT * FROM gold_kpi_by_day ORDER BY transaction_date").fetchdf(),
     }
     con.close()
     return out
 
 
-# ---------- Layout ----------
-
-st.set_page_config(
-    page_title="PuntoRed | Transacciones",
-    page_icon="💳",
-    layout="wide",
-)
-
+st.set_page_config(page_title="PuntoRed | Transacciones", page_icon="💳", layout="wide")
 st.title("💳 Dashboard de Transacciones — PuntoRed")
-st.caption(
-    "Análisis basado en la capa Gold del pipeline Medallion. "
-    "Datos sintéticos generados con Faker."
-)
+st.caption("Análisis basado en la capa Gold del pipeline Medallion. Datos sintéticos generados con Faker.")
 
 data = load_gold()
 overall = data["overall"].iloc[0]
 
-
-# ---------- KPIs principales ----------
-
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Transacciones totales", f"{overall['total_transactions']:,}")
-c2.metric("Usuarios únicos", f"{overall['total_users']:,}")
-c3.metric("Monto procesado", f"${overall['total_amount']:,.0f}")
-c4.metric("Tasa de éxito", f"{overall['success_rate']*100:.1f}%")
+c2.metric("Usuarios únicos",       f"{overall['total_users']:,}")
+c3.metric("Monto procesado",       f"${overall['total_amount']:,.0f}")
+c4.metric("Tasa de éxito",         f"{overall['success_rate']*100:.1f}%")
 
 c5, c6, c7, c8 = st.columns(4)
-c5.metric("Ticket promedio", f"${overall['avg_amount']:,.0f}")
-c6.metric("Revenue (success)", f"${overall['total_amount_success']:,.0f}")
-c7.metric("Tiempo proc. promedio", f"{overall['avg_processing_time_ms']:.0f} ms")
+c5.metric("Ticket promedio",        f"${overall['avg_amount']:,.0f}")
+c6.metric("Revenue (success)",      f"${overall['total_amount_success']:,.0f}")
+c7.metric("Tiempo proc. promedio",  f"{overall['avg_processing_time_ms']:.0f} ms")
 c8.metric(
     "Periodo",
     f"{pd.to_datetime(overall['first_transaction_at']).strftime('%Y-%m-%d')} → "
@@ -82,9 +61,6 @@ c8.metric(
 )
 
 st.divider()
-
-
-# ---------- Tendencia temporal ----------
 
 st.subheader("📈 Comportamiento transaccional en el tiempo")
 
@@ -100,18 +76,14 @@ monthly = by_day.groupby("mes", as_index=False).agg(
 col_a, col_b = st.columns(2)
 with col_a:
     fig_volume = px.bar(
-        monthly,
-        x="mes",
-        y="total_transactions",
+        monthly, x="mes", y="total_transactions",
         title="Transacciones por mes",
         labels={"total_transactions": "Transacciones", "mes": "Mes"},
     )
     st.plotly_chart(fig_volume, use_container_width=True)
 with col_b:
     fig_rate = px.line(
-        monthly,
-        x="mes",
-        y="success_rate",
+        monthly, x="mes", y="success_rate",
         title="Tasa de éxito mensual",
         labels={"success_rate": "Tasa de éxito", "mes": "Mes"},
         markers=True,
@@ -121,9 +93,6 @@ with col_b:
 
 st.divider()
 
-
-# ---------- Por método de pago ----------
-
 st.subheader("💳 Por método de pago")
 
 by_pm = data["by_payment_method"].copy()
@@ -131,79 +100,48 @@ by_pm["success_pct"] = by_pm["success_rate"] * 100
 
 col_a, col_b = st.columns(2)
 with col_a:
-    fig_pm_vol = px.bar(
-        by_pm,
-        x="payment_method",
-        y="total_transactions",
-        title="Volumen por método",
-        color="payment_method",
-    )
+    fig_pm_vol = px.bar(by_pm, x="payment_method", y="total_transactions",
+                       title="Volumen por método", color="payment_method")
     st.plotly_chart(fig_pm_vol, use_container_width=True)
 with col_b:
     fig_pm_succ = px.bar(
         by_pm.sort_values("success_pct"),
-        x="payment_method",
-        y="success_pct",
+        x="payment_method", y="success_pct",
         title="Tasa de éxito por método (%)",
-        color="success_pct",
-        color_continuous_scale="RdYlGn",
+        color="success_pct", color_continuous_scale="RdYlGn",
     )
     st.plotly_chart(fig_pm_succ, use_container_width=True)
 
 st.dataframe(
-    by_pm[
-        [
-            "payment_method",
-            "total_transactions",
-            "total_amount",
-            "avg_ticket",
-            "success_rate",
-            "avg_processing_time_ms",
-        ]
-    ].style.format(
-        {
-            "total_amount": "${:,.0f}",
-            "avg_ticket": "${:,.0f}",
-            "success_rate": "{:.1%}",
-            "avg_processing_time_ms": "{:.0f}",
-        }
-    ),
+    by_pm[[
+        "payment_method", "total_transactions", "total_amount",
+        "avg_ticket", "success_rate", "avg_processing_time_ms",
+    ]].style.format({
+        "total_amount":           "${:,.0f}",
+        "avg_ticket":             "${:,.0f}",
+        "success_rate":           "{:.1%}",
+        "avg_processing_time_ms": "{:.0f}",
+    }),
     use_container_width=True,
 )
 
 st.divider()
-
-
-# ---------- Por canal ----------
 
 st.subheader("📱 Por canal")
 
 by_ch = data["by_channel"].copy()
 col_a, col_b = st.columns(2)
 with col_a:
-    fig_ch_succ = px.bar(
-        by_ch,
-        x="channel",
-        y="success_rate",
-        title="Tasa de éxito por canal",
-        color="channel",
-    )
+    fig_ch_succ = px.bar(by_ch, x="channel", y="success_rate",
+                        title="Tasa de éxito por canal", color="channel")
     fig_ch_succ.update_yaxes(tickformat=".1%")
     st.plotly_chart(fig_ch_succ, use_container_width=True)
 with col_b:
-    fig_ch_time = px.bar(
-        by_ch,
-        x="channel",
-        y="avg_processing_time_ms",
-        title="Tiempo de procesamiento promedio (ms)",
-        color="channel",
-    )
+    fig_ch_time = px.bar(by_ch, x="channel", y="avg_processing_time_ms",
+                        title="Tiempo de procesamiento promedio (ms)", color="channel")
     st.plotly_chart(fig_ch_time, use_container_width=True)
 
 st.divider()
-
-
-# ---------- Cruce método × canal (insight clave) ----------
 
 st.subheader("🔥 Mapa de fricción: método × canal")
 st.caption(
@@ -212,25 +150,17 @@ st.caption(
 )
 
 pivot = data["by_method_channel"].pivot_table(
-    index="payment_method",
-    columns="channel",
-    values="success_rate",
-    aggfunc="first",
+    index="payment_method", columns="channel",
+    values="success_rate", aggfunc="first",
 )
 fig_heatmap = px.imshow(
-    pivot,
-    text_auto=".1%",
-    color_continuous_scale="RdYlGn",
-    aspect="auto",
+    pivot, text_auto=".1%", color_continuous_scale="RdYlGn", aspect="auto",
     title="Tasa de éxito por método × canal",
     labels={"color": "Success rate"},
 )
 st.plotly_chart(fig_heatmap, use_container_width=True)
 
 st.divider()
-
-
-# ---------- Top usuarios ----------
 
 st.subheader("👤 Top 10 usuarios por revenue")
 
@@ -241,10 +171,7 @@ top_users = (
     [["user_name", "total_transactions", "revenue", "avg_ticket", "success_rate"]]
 )
 fig_top = px.bar(
-    top_users,
-    x="revenue",
-    y="user_name",
-    orientation="h",
+    top_users, x="revenue", y="user_name", orientation="h",
     title="Top 10 por revenue",
     labels={"revenue": "Revenue", "user_name": "Usuario"},
 )
@@ -252,28 +179,22 @@ fig_top.update_layout(yaxis={"categoryorder": "total ascending"})
 st.plotly_chart(fig_top, use_container_width=True)
 
 st.dataframe(
-    top_users.style.format(
-        {
-            "revenue": "${:,.0f}",
-            "avg_ticket": "${:,.0f}",
-            "success_rate": "{:.1%}",
-        }
-    ),
+    top_users.style.format({
+        "revenue":      "${:,.0f}",
+        "avg_ticket":   "${:,.0f}",
+        "success_rate": "{:.1%}",
+    }),
     use_container_width=True,
 )
 
 st.divider()
 
-
-# ---------- Insights ejecutivos ----------
-
 st.subheader("💡 Insights ejecutivos y recomendaciones")
 
-# Calcular insights dinámicamente
-worst_combo = data["by_method_channel"].sort_values("failure_rate", ascending=False).iloc[0]
+worst_combo     = data["by_method_channel"].sort_values("failure_rate", ascending=False).iloc[0]
 slowest_channel = data["by_channel"].sort_values("avg_processing_time_ms", ascending=False).iloc[0]
 fastest_channel = data["by_channel"].sort_values("avg_processing_time_ms", ascending=True).iloc[0]
-top_method = data["by_payment_method"].sort_values("total_amount", ascending=False).iloc[0]
+top_method      = data["by_payment_method"].sort_values("total_amount", ascending=False).iloc[0]
 top_users_share = (
     data["by_user"].sort_values("revenue", ascending=False).head(50)["revenue"].sum()
     / data["by_user"]["revenue"].sum()
