@@ -43,39 +43,7 @@ streamlit run dashboard/app.py
 python dashboard/generate_report.py
 ```
 
-## Modelo de datos
-
-3 tablas relacionadas, idénticas a las del enunciado:
-
-```
-users (user_id PK, name, email, created_at)
-   │
-   │ 1..N
-   ▼
-transactions (transaction_id PK, user_id FK, amount, status, created_at)
-   │
-   │ 1..N
-   ▼
-transaction_details (detail_id PK, transaction_id FK, payment_method, channel, processing_time_ms)
-```
-
-## Capa Gold (KPIs)
-
-Las queries SQL están en [`sql/`](sql/) — una por tabla Gold. Las puedes leer y modificar directamente.
-
-| Tabla | Propósito |
-|---|---|
-| `gold_transactions_enriched` | Fact denormalizada (1 fila por detail con JOIN a tx + user) |
-| `gold_kpi_overall` | Totales globales |
-| `gold_kpi_by_user` | Métricas por usuario |
-| `gold_kpi_by_payment_method` | Métricas por método de pago |
-| `gold_kpi_by_channel` | Métricas por canal |
-| `gold_kpi_by_method_channel` | Cruce método × canal (insight estrella) |
-| `gold_kpi_by_day` | Serie temporal diaria |
-
-## Reglas de negocio aplicadas (Silver)
-
-Todas las reglas del enunciado están implementadas en `pipeline.py` (función `construir_silver`):
+Todas las reglas del están implementadas `pipeline.py` (función `construir_silver`):
 
 - `amount > 0` (descarta 10 filas en datos de prueba)
 - Sin duplicados por `transaction_id` (descarta 8 filas)
