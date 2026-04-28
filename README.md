@@ -20,18 +20,6 @@ y reporte estático.
 
 Diagrama detallado: [`docs/arquitectura.md`](docs/arquitectura.md).
 
-## Stack
-
-| Capa | Herramienta | Motivo |
-|---|---|---|
-| Lenguaje | **Python 3.11** | Estándar en data |
-| Transformación | **pandas** | Sintaxis cercana a SQL |
-| Storage | **Parquet** | Columnar, comprimido, tipado |
-| Motor SQL | **DuckDB** | Lee parquet directo, sin servidor |
-| Dashboard | **Streamlit + Plotly** | Interactivo, en Python puro |
-| Reporte estático | **HTML + Plotly** | Un solo archivo, no requiere Python |
-| Datos | **Faker** | Genera 3 tablas sintéticas con suciedad inyectada |
-
 ## Cómo correrlo
 
 ```bash
@@ -46,14 +34,13 @@ pip install -r requirements.txt
 # 2. Ejecutar pipeline completo
 python pipeline.py
 
-# 3. Ver el dashboard (elige una de las dos opciones):
+# 3. Ver el dashboard:
 
 # Opción A — dashboard interactivo (Streamlit)
 streamlit run dashboard/app.py
 
 # Opción B — reporte estático (un solo HTML, doble click)
 python dashboard/generate_report.py
-# luego abre docs/reporte.html
 ```
 
 ## Modelo de datos
@@ -90,46 +77,35 @@ Las queries SQL están en [`sql/`](sql/) — una por tabla Gold. Las puedes leer
 
 Todas las reglas del enunciado están implementadas en `pipeline.py` (función `construir_silver`):
 
-- ✅ `amount > 0` (descarta 10 filas en datos de prueba)
-- ✅ Sin duplicados por `transaction_id` (descarta 8 filas)
-- ✅ Integridad referencial: no transacciones sin usuario (descarta 15 huérfanas)
-- ✅ Integridad referencial: no detalles sin transacción
-- ✅ `status` estandarizado a lowercase (`success` / `failed`)
+- `amount > 0` (descarta 10 filas en datos de prueba)
+- Sin duplicados por `transaction_id` (descarta 8 filas)
+- Integridad referencial: no transacciones sin usuario (descarta 15 huérfanas)
+- Integridad referencial: no detalles sin transacción
+- status` estandarizado a lowercase (`success` / `failed`)
 
 ## Estructura del proyecto
 
 ```
 puntored-pipeline/
-├── pipeline.py              # ← script principal (todo en un archivo)
+├── pipeline.py             
 ├── requirements.txt
 ├── README.md
-├── sql/                     # 7 queries SQL de la capa Gold
+├── sql/                     
 ├── dashboard/
-│   ├── app.py               # Streamlit
-│   └── generate_report.py   # genera el HTML estático
+│   ├── app.py              
+│   └── generate_report.py  
 ├── data/
-│   ├── raw/                 # CSV originales
-│   ├── bronze/              # parquet sin transformar
-│   ├── silver/              # parquet limpio
-│   └── gold/                # KPIs + warehouse DuckDB
+│   ├── raw/                 
+│   ├── bronze/              
+│   ├── silver/             
+│   └── gold/                
 ├── notebooks/
-│   └── exploracion.ipynb    # análisis exploratorio
+│   └── exploracion.ipynb    
 └── docs/
-    ├── arquitectura.md      # diagrama + decisiones técnicas
-    ├── resumen_ejecutivo.md # 3 insights + recomendaciones
-    └── reporte.html         # reporte estático (generado)
+    ├── arquitectura.md      
+    ├── resumen_ejecutivo.md 
+    └── reporte.html        
 ```
-
-## Niveles de la rúbrica
-
-| Nivel | Cobertura | Implementación |
-|---|---|---|
-| **0 — Ingesta (10%)** | ✅ | `pipeline.py` (función `generar_datos` + `cargar_bronze`) |
-| **1 — Silver (20%)** | ✅ | `pipeline.py` (función `construir_silver`) — todas las reglas del PDF |
-| **2 — Gold (20%)** | ✅ | 7 archivos SQL en `sql/` ejecutados desde `construir_gold` |
-| **3 — Calidad (15%)** | ✅ | 4 validaciones críticas en `pipeline.py` (función `validar`) |
-| **4 — Arquitectura (15%)** | 🟡 | Pipeline modular en funciones, separación capas. Falta: incremental + particionamiento |
-| **5 — Insights (20%)** | ✅ | Dashboard + reporte HTML + [`docs/resumen_ejecutivo.md`](docs/resumen_ejecutivo.md) |
 
 ## Insights ejecutivos
 
@@ -138,22 +114,3 @@ Ver [`docs/resumen_ejecutivo.md`](docs/resumen_ejecutivo.md). En síntesis:
 1. **Wallet + Mobile** tiene 18.3% de fallo (vs. 7.7% global) — fricción puntual a auditar.
 2. **Web es 3.1× más lento que API** (786ms vs 250ms) — impacta conversión.
 3. **Card concentra 45% del volumen económico** — riesgo de concentración, requiere fallback.
-
-## Decisiones técnicas
-
-- **Datos sintéticos con Faker**: el PDF permite elegir fuente; generamos datos con suciedad
-  intencional (duplicados, nulls, montos negativos, status mixto, huérfanos) para demostrar
-  el valor de la limpieza en Silver.
-- **DuckDB en lugar de PostgreSQL**: cero infraestructura, lee parquet directo con SQL,
-  escalable a Snowflake/BigQuery sin tocar SQL.
-- **SQL externo (no embebido)**: las queries de Gold viven en `sql/*.sql` — fáciles de leer,
-  modificar y auditar de forma independiente al código Python.
-- **Reporte HTML adicional al dashboard Streamlit**: para que el evaluador no tenga que
-  correr nada — solo abrir el archivo.
-
-## Mejoras posibles (no implementadas)
-
-- Particionamiento por fecha en Bronze/Silver.
-- Incremental loads (procesar solo nuevos `_ingested_at`).
-- Orquestación con Airflow o Prefect.
-- Validaciones declarativas con Great Expectations.

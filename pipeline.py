@@ -141,11 +141,9 @@ def construir_gold():
     if db.exists():
         db.unlink()
 
-    # DuckDB resuelve paths relativos contra el cwd
     os.chdir(ROOT)
     con = duckdb.connect(str(db))
 
-    # Orden importa: las demás queries dependen de gold_transactions_enriched
     archivos_sql = [
         "gold_transactions_enriched.sql",
         "gold_kpi_overall.sql",
