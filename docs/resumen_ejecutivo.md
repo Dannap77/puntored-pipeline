@@ -17,7 +17,7 @@ La combinación **wallet en canal mobile** concentra la peor tasa de fallo del c
 | cash · web | 16.6% | 163 |
 | wallet · web | 17.2% | 227 |
 
-> 🎯 **Recomendación:** Priorizar una auditoría de la integración wallet en la app móvil
+> **Recomendación:** Priorizar una auditoría de la integración wallet en la app móvil
 > antes de la próxima campaña. Revisar logs de error específicos, tasas de timeout y
 > compatibilidad de versiones del SDK. Una mejora de 5 pp en esta combinación
 > recuperaría ~21 transacciones/mes.
@@ -35,7 +35,7 @@ La combinación **wallet en canal mobile** concentra la peor tasa de fallo del c
 La latencia en web no se traduce en menor success rate (87.1% vs 87.1% API), pero **3.1× más
 tiempo en pantalla** correlaciona típicamente con abandono pre-confirmación.
 
-> 🎯 **Recomendación:** Identificar si el cuello de botella está en validaciones del lado
+> **Recomendación:** Identificar si el cuello de botella está en validaciones del lado
 > cliente, render de la pasarela o llamadas síncronas evitables. El canal web representa
 > 32% del volumen — bajar la latencia a niveles mobile (≈600 ms) impacta directamente la
 > conversión sin requerir cambios en backend de pagos.
@@ -56,7 +56,7 @@ sufre una caída, casi la mitad del negocio se afecta.
 | Cash | $694 M | 10% | 86.4% |
 | Bank transfer | $680 M | 10% | 86.7% |
 
-> 🎯 **Recomendación:** Implementar **fallback automático entre pasarelas de card** (si la
+> **Recomendación:** Implementar **fallback automático entre pasarelas de card** (si la
 > primaria falla, reintentar con secundaria). Adicionalmente, lanzar incentivos puntuales
 > para PSE y wallet (cashback) que diversifiquen el mix sin sacrificar success rate.
 

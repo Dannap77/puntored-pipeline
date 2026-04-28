@@ -1,8 +1,4 @@
 """Pipeline de transacciones (Bronze -> Silver -> Gold).
-
-Genera datos sintéticos, los limpia con pandas y calcula KPIs ejecutando
-los archivos SQL de sql/. Output final: data/gold/.
-
 Uso:
     python pipeline.py
 """

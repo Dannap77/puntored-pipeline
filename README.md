@@ -43,14 +43,6 @@ streamlit run dashboard/app.py
 python dashboard/generate_report.py
 ```
 
-Todas las reglas del están implementadas `pipeline.py` (función `construir_silver`):
-
-- `amount > 0` (descarta 10 filas en datos de prueba)
-- Sin duplicados por `transaction_id` (descarta 8 filas)
-- Integridad referencial: no transacciones sin usuario (descarta 15 huérfanas)
-- Integridad referencial: no detalles sin transacción
-- status` estandarizado a lowercase (`success` / `failed`)
-
 ## Estructura del proyecto
 
 ```
