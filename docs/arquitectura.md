@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-    subgraph FUENTES["Fuentes"]
+    subgraph FUENTES["Fuente"]
         F1[Faker<br/>generador]
     end
 
@@ -32,11 +32,11 @@ flowchart LR
 
     subgraph CONSUMERS["Consumo"]
         D1[Streamlit<br/>Dashboard]
-        D2[Jupyter<br/>Notebook]
-        D3[SQL ad-hoc<br/>via DuckDB]
+        D2[HTML estático<br/>reporte.html]
+        D3[Notebook<br/>Jupyter]
     end
 
-    QC[Quality Checks<br/>17 validaciones]
+    QC[Quality Checks<br/>4 validaciones]
 
     F1 --> B1 & B2 & B3
     B1 --> S1
@@ -48,10 +48,12 @@ flowchart LR
     G2 & G3 & G4 & G5 & G6 & G7 --> D2
     G2 & G3 & G4 & G5 & G6 & G7 --> D3
 
-    BRONZE --> QC
     SILVER --> QC
-    GOLD --> QC
 ```
+
+Todo el pipeline vive en un solo archivo: [`pipeline.py`](../pipeline.py),
+con cinco funciones que reflejan las cinco etapas:
+`generar_datos()` → `cargar_bronze()` → `construir_silver()` → `construir_gold()` → `validar()`.
 
 ## Decisiones técnicas
 
@@ -71,23 +73,27 @@ flowchart LR
 - **Comprimido**: ~5–10x más pequeño que CSV.
 - **Columnar**: lee solo las columnas que necesitas → analytics rápido.
 
-### Trazabilidad
-Cada capa añade columnas técnicas:
-- Bronze: `_ingested_at`, `_pipeline_run_id`, `_source_file`
-- Silver: hereda las anteriores + `_silver_processed_at`
+### ¿Por qué un solo archivo `pipeline.py`?
+- **Legible top-a-abajo**: cinco funciones, una por etapa. Un analista nuevo entiende
+  el flujo completo en 5 minutos.
+- **Sin abstracciones de más**: para 5K filas, el overhead de modularizar en paquetes
+  no se justifica. Si el proyecto crece, refactorizar es trivial.
 
-Esto permite auditar de qué corrida del pipeline vino cada fila.
+### ¿Por qué dos versiones del dashboard?
+- **Streamlit** (`dashboard/app.py`): interactivo, profesional, requiere correr un servidor.
+- **HTML estático** (`docs/reporte.html`): un solo archivo, doble-click y listo. Ideal
+  para compartir como adjunto o cuando no se puede correr Python.
 
 ## Niveles de la rúbrica cubiertos
 
 | Nivel | Estado | Implementación |
 |---|---|---|
-| 0 — Ingesta | ✅ | `src/ingestion/generate_data.py` + `src/bronze/load_bronze.py` con env vars |
-| 1 — Silver | ✅ | `src/silver/transform.py` aplica todas las reglas de negocio del PDF |
-| 2 — Gold | ✅ | 7 SQL files en `sql/` + `src/gold/build_kpis.py` orquestador |
-| 3 — Calidad | ✅ | 17 validaciones en `src/quality/validations.py`, logging con archivo + stdout |
-| 4 — Arquitectura | 🟡 | Orquestación con `main.py`, código modular, env vars, run_id por corrida. Falta: particionamiento por fecha + incremental |
-| 5 — Insights | ✅ | Dashboard Streamlit + 3 insights en `docs/resumen_ejecutivo.md` + notebook |
+| 0 — Ingesta | ✅ | `pipeline.py` funciones `generar_datos` + `cargar_bronze` |
+| 1 — Silver | ✅ | `construir_silver` aplica todas las reglas de negocio del PDF |
+| 2 — Gold | ✅ | 7 archivos SQL en `sql/` + `construir_gold` los ejecuta |
+| 3 — Calidad | ✅ | 4 validaciones en `validar()` con abort en caso de fallo |
+| 4 — Arquitectura | 🟡 | Pipeline modular, capas separadas. Falta: particionamiento + incremental |
+| 5 — Insights | ✅ | Dashboard Streamlit + reporte HTML + 3 insights en `docs/resumen_ejecutivo.md` |
 
 ## Próximos pasos (mejoras posibles)
 

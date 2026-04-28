@@ -2,25 +2,20 @@
 
 Pipeline que ingesta, transforma y expone transacciones financieras siguiendo
 **arquitectura Medallion (Bronze → Silver → Gold)**, con dashboard interactivo
-y validaciones de calidad automatizadas.
-
-> 💡 **Punto de partida rápido:** corre `python main.py` y luego `streamlit run dashboard/app.py`.
-> Todo se construye desde cero en menos de 1 segundo.
+y reporte estático.
 
 ## Arquitectura
 
 ```
 ┌────────────┐   ┌──────────┐   ┌──────────┐   ┌────────┐   ┌─────────────┐
 │  Faker     │──▶│  Bronze  │──▶│  Silver  │──▶│  Gold  │──▶│  Dashboard  │
-│ (3 tablas) │   │ raw .pq  │   │ clean    │   │ KPIs   │   │ (Streamlit) │
-└────────────┘   └────┬─────┘   └────┬─────┘   └───┬────┘   └─────────────┘
-                      │              │              │
-                      └──────────────┴──────────────┘
-                                     │
-                              ┌──────▼──────┐
-                              │  Quality    │
-                              │  17 checks  │
-                              └─────────────┘
+│ (3 tablas) │   │ raw .pq  │   │ clean    │   │ KPIs   │   │ + reporte   │
+└────────────┘   └──────────┘   └──────────┘   └────────┘   └─────────────┘
+                                                    │
+                                              ┌─────▼─────┐
+                                              │  Quality  │
+                                              │   checks  │
+                                              └───────────┘
 ```
 
 Diagrama detallado: [`docs/arquitectura.md`](docs/arquitectura.md).
@@ -32,10 +27,10 @@ Diagrama detallado: [`docs/arquitectura.md`](docs/arquitectura.md).
 | Lenguaje | **Python 3.11** | Estándar en data |
 | Transformación | **pandas** | Sintaxis cercana a SQL |
 | Storage | **Parquet** | Columnar, comprimido, tipado |
-| SQL Engine | **DuckDB** | Lee parquet directo, sin servidor |
+| Motor SQL | **DuckDB** | Lee parquet directo, sin servidor |
 | Dashboard | **Streamlit + Plotly** | Interactivo, en Python puro |
+| Reporte estático | **HTML + Plotly** | Un solo archivo, no requiere Python |
 | Datos | **Faker** | Genera 3 tablas sintéticas con suciedad inyectada |
-| Calidad | Validaciones en Python + logging | 17 checks automatizados |
 
 ## Cómo correrlo
 
@@ -46,44 +41,24 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 # Windows Git Bash / Linux / Mac:
 source .venv/Scripts/activate
-
 pip install -r requirements.txt
-cp .env.example .env
 
-# 2. Ejecutar pipeline completo (genera datos, Bronze, Silver, Gold, valida)
-python main.py
+# 2. Ejecutar pipeline completo
+python pipeline.py
 
-# 3. Abrir dashboard
+# 3. Ver el dashboard (elige una de las dos opciones):
+
+# Opción A — dashboard interactivo (Streamlit)
 streamlit run dashboard/app.py
-```
 
-Salida esperada del pipeline:
-
-```
-========== 1. Generacion de datos ==========
-[INFO] Generados 505 usuarios (incluye duplicados/nulls)
-[INFO] Generadas 5008 transacciones
-[INFO] Generados 5411 detalles
-========== 2. Bronze ==========
-[INFO] [Bronze] users: 505 filas → users.parquet
-[INFO] [Bronze] transactions: 5008 filas → transactions.parquet
-[INFO] [Bronze] transaction_details: 5411 filas → transaction_details.parquet
-========== 3. Silver ==========
-[INFO] [Silver] users: 505 → 500 (descartadas 5)
-[INFO] [Silver] transactions: 5008 → 4975 (descartadas 33)
-[INFO] [Silver] transaction_details: 5411 → 5380 (descartadas 31)
-========== 4. Gold ==========
-[INFO] [Gold] gold_transactions_enriched: 5380 filas
-[INFO] [Gold] gold_kpi_overall, gold_kpi_by_user, gold_kpi_by_payment_method,
-              gold_kpi_by_channel, gold_kpi_by_method_channel, gold_kpi_by_day
-========== 5. Quality checks ==========
-Quality checks: 17/17 OK
-Pipeline OK en 0.87s
+# Opción B — reporte estático (un solo HTML, doble click)
+python dashboard/generate_report.py
+# luego abre docs/reporte.html
 ```
 
 ## Modelo de datos
 
-**Bronze / Silver:** 3 tablas relacionadas, idénticas a las del enunciado:
+3 tablas relacionadas, idénticas a las del enunciado:
 
 ```
 users (user_id PK, name, email, created_at)
@@ -97,68 +72,64 @@ transactions (transaction_id PK, user_id FK, amount, status, created_at)
 transaction_details (detail_id PK, transaction_id FK, payment_method, channel, processing_time_ms)
 ```
 
-**Gold:** 1 fact table denormalizada + 6 tablas de KPIs agregados:
+## Capa Gold (KPIs)
 
-| Tabla | Filas | Propósito |
-|---|---|---|
-| `gold_transactions_enriched` | ~5,380 | Fact denormalizada (1 fila por detail con JOIN a tx + user) |
-| `gold_kpi_overall` | 1 | Totales globales |
-| `gold_kpi_by_user` | 500 | Métricas por usuario |
-| `gold_kpi_by_payment_method` | 5 | Métricas por método de pago |
-| `gold_kpi_by_channel` | 3 | Métricas por canal |
-| `gold_kpi_by_method_channel` | 15 | Cruce método × canal |
-| `gold_kpi_by_day` | ~450 | Serie temporal diaria |
+Las queries SQL están en [`sql/`](sql/) — una por tabla Gold. Las puedes leer y modificar directamente.
 
-Las queries SQL están en [`sql/`](sql/) — una por tabla Gold, fáciles de auditar.
+| Tabla | Propósito |
+|---|---|
+| `gold_transactions_enriched` | Fact denormalizada (1 fila por detail con JOIN a tx + user) |
+| `gold_kpi_overall` | Totales globales |
+| `gold_kpi_by_user` | Métricas por usuario |
+| `gold_kpi_by_payment_method` | Métricas por método de pago |
+| `gold_kpi_by_channel` | Métricas por canal |
+| `gold_kpi_by_method_channel` | Cruce método × canal (insight estrella) |
+| `gold_kpi_by_day` | Serie temporal diaria |
 
 ## Reglas de negocio aplicadas (Silver)
 
-Todas las reglas del enunciado están implementadas en `src/silver/transform.py` y verificadas en `src/quality/validations.py`:
+Todas las reglas del enunciado están implementadas en `pipeline.py` (función `construir_silver`):
 
 - ✅ `amount > 0` (descarta 10 filas en datos de prueba)
 - ✅ Sin duplicados por `transaction_id` (descarta 8 filas)
 - ✅ Integridad referencial: no transacciones sin usuario (descarta 15 huérfanas)
 - ✅ Integridad referencial: no detalles sin transacción
 - ✅ `status` estandarizado a lowercase (`success` / `failed`)
-- ✅ Manejo de nulls en campos no obligatorios (email, processing_time_ms)
-- ✅ Trazabilidad Bronze → Silver → Gold con `_pipeline_run_id`
 
 ## Estructura del proyecto
 
 ```
 puntored-pipeline/
-├── main.py                  # ← orquestador (entry point)
+├── pipeline.py              # ← script principal (todo en un archivo)
 ├── requirements.txt
-├── .env.example
-├── config/
-│   └── settings.py          # carga env vars
-├── src/
-│   ├── ingestion/           # generador Faker
-│   ├── bronze/              # CSV → parquet
-│   ├── silver/              # limpieza + reglas
-│   ├── gold/                # ejecuta SQL
-│   ├── quality/             # 17 validaciones
-│   └── utils/logger.py      # logging unificado
-├── sql/                     # 7 queries SQL para la capa Gold
-├── data/                    # bronze/silver/gold/raw (ignorado por git)
-├── dashboard/app.py         # Streamlit
-├── notebooks/exploracion.ipynb
-├── docs/
-│   ├── arquitectura.md      # diagrama + decisiones
-│   └── resumen_ejecutivo.md # 3 insights + recomendaciones
-└── logs/pipeline.log        # generado en ejecución
+├── README.md
+├── sql/                     # 7 queries SQL de la capa Gold
+├── dashboard/
+│   ├── app.py               # Streamlit
+│   └── generate_report.py   # genera el HTML estático
+├── data/
+│   ├── raw/                 # CSV originales
+│   ├── bronze/              # parquet sin transformar
+│   ├── silver/              # parquet limpio
+│   └── gold/                # KPIs + warehouse DuckDB
+├── notebooks/
+│   └── exploracion.ipynb    # análisis exploratorio
+└── docs/
+    ├── arquitectura.md      # diagrama + decisiones técnicas
+    ├── resumen_ejecutivo.md # 3 insights + recomendaciones
+    └── reporte.html         # reporte estático (generado)
 ```
 
 ## Niveles de la rúbrica
 
 | Nivel | Cobertura | Implementación |
 |---|---|---|
-| **0 — Ingesta (10%)** | ✅ Completo | `src/ingestion/`, `src/bronze/`, env vars (`.env`) |
-| **1 — Silver (20%)** | ✅ Completo | Todas las reglas del PDF en `src/silver/transform.py` |
-| **2 — Gold (20%)** | ✅ Completo | 7 tablas en `data/gold/`, KPIs por usuario/método/canal/tiempo |
-| **3 — Calidad (15%)** | ✅ Completo | 17 validaciones, logging a archivo + stdout, manejo de errores |
-| **4 — Arquitectura (15%)** | 🟡 Parcial | Orquestación, modularidad, env vars. Falta: incremental + particionamiento |
-| **5 — Insights (20%)** | ✅ Completo | Dashboard + 3 insights accionables en `docs/resumen_ejecutivo.md` |
+| **0 — Ingesta (10%)** | ✅ | `pipeline.py` (función `generar_datos` + `cargar_bronze`) |
+| **1 — Silver (20%)** | ✅ | `pipeline.py` (función `construir_silver`) — todas las reglas del PDF |
+| **2 — Gold (20%)** | ✅ | 7 archivos SQL en `sql/` ejecutados desde `construir_gold` |
+| **3 — Calidad (15%)** | ✅ | 4 validaciones críticas en `pipeline.py` (función `validar`) |
+| **4 — Arquitectura (15%)** | 🟡 | Pipeline modular en funciones, separación capas. Falta: incremental + particionamiento |
+| **5 — Insights (20%)** | ✅ | Dashboard + reporte HTML + [`docs/resumen_ejecutivo.md`](docs/resumen_ejecutivo.md) |
 
 ## Insights ejecutivos
 
@@ -168,17 +139,21 @@ Ver [`docs/resumen_ejecutivo.md`](docs/resumen_ejecutivo.md). En síntesis:
 2. **Web es 3.1× más lento que API** (786ms vs 250ms) — impacta conversión.
 3. **Card concentra 45% del volumen económico** — riesgo de concentración, requiere fallback.
 
-## Decisiones técnicas clave
+## Decisiones técnicas
 
-- **DuckDB** en lugar de PostgreSQL: cero infraestructura, lee parquet directo con SQL, escalable a Snowflake/BigQuery sin cambios.
-- **Datos sintéticos con Faker**: el PDF permite elegir fuente. Generamos datos con suciedad intencional (duplicados, nulls, montos negativos, status mixto, huérfanos) para demostrar el valor de Silver.
-- **Trazabilidad por capa**: cada parquet lleva `_pipeline_run_id` y `_ingested_at`; permite auditar de qué corrida vino cada fila.
-- **SQL externo (no embebido)**: las queries de Gold viven en `sql/*.sql` — un analyst puede modificarlas sin tocar Python.
+- **Datos sintéticos con Faker**: el PDF permite elegir fuente; generamos datos con suciedad
+  intencional (duplicados, nulls, montos negativos, status mixto, huérfanos) para demostrar
+  el valor de la limpieza en Silver.
+- **DuckDB en lugar de PostgreSQL**: cero infraestructura, lee parquet directo con SQL,
+  escalable a Snowflake/BigQuery sin tocar SQL.
+- **SQL externo (no embebido)**: las queries de Gold viven en `sql/*.sql` — fáciles de leer,
+  modificar y auditar de forma independiente al código Python.
+- **Reporte HTML adicional al dashboard Streamlit**: para que el evaluador no tenga que
+  correr nada — solo abrir el archivo.
 
 ## Mejoras posibles (no implementadas)
 
-- Particionamiento por fecha en Bronze/Silver (`year=2025/month=01/...`).
+- Particionamiento por fecha en Bronze/Silver.
 - Incremental loads (procesar solo nuevos `_ingested_at`).
-- Reemplazar runner manual con **Prefect** o **Airflow**.
-- Migrar validaciones a **Great Expectations** declarativas.
-- Streaming con Kafka + Spark Structured Streaming.
+- Orquestación con Airflow o Prefect.
+- Validaciones declarativas con Great Expectations.

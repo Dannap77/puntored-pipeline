@@ -2,8 +2,6 @@ pandas==2.2.2
 pyarrow==16.1.0
 duckdb==1.0.0
 faker==25.8.0
-python-dotenv==1.0.1
 streamlit==1.36.0
 plotly==5.22.0
-great-expectations==0.18.16
 jupyter==1.0.0

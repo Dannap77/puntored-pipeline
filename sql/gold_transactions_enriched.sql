@@ -15,7 +15,7 @@ SELECT
     d.payment_method,
     d.channel,
     d.processing_time_ms,
-    t._pipeline_run_id
+    t._ingested_at
 FROM read_parquet('data/silver/transactions.parquet') t
 INNER JOIN read_parquet('data/silver/users.parquet') u
     ON t.user_id = u.user_id
